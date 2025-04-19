@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hirsch Leasing LLC</title>
+  <link rel="icon" type="image/jpg" href="Images/Logo.jpg">
+  <link rel="stylesheet" href="navbar.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    .hero {
+      position: relative;
+      background-image: url('Images/TotallyCopyrightCharlotte.jpg');
+      background-size: cover;
+      background-position: center;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: white;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 0;
+    }
+
+    .hero-text {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      padding: 0 1rem;
+    }
+
+    .hero-text h1 {
+      font-size: 2.2rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-btn {
+      background-color: white;
+      color: #000;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: background 0.3s ease;
+      display: inline-block;
+    }
+
+    .hero-btn:hover {
+      background-color: #eee;
+    }
+
+    .restrictions {
+      font-weight: normal;
+      font-size: 0.85rem;
+      display: block;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="announcement">
+    ONLY 1 Property left for 2025-2026 school year!
+  </div>
+
+  <header class="navbar">
+    <div class="nav-left">
+      <a href="aboutUs.html">About Us</a>
+      <a href="properties.html">Our Properties</a>
+      <a href="contact.html">Contact Us</a>
+      <a href="schedule.html">Schedule Tour</a>
+    </div>
+    <div class="logo"><a href="website.html"><img src="Images/LongLogo.jpg" alt="Hirsch Leasing Logo" style="height: 40px;"></a></div>
+    <div class="nav-right">
+      <a href="apply.html" class="btn">APPLY NOW</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="overlay"></div>
+    <div class="hero-text">
+      <h1>Student Houses Near UNC Charlotte</h1>
+      <a href="schedule.html" class="hero-btn">SCHEDULE TOUR</a>
+    </div>
+  </section>
+
+</body>
+</html>

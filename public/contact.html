@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Contact Us - Hirsch Leasing</title>
+  <link rel="icon" type="image/jpg" href="Images/Logo.jpg">
+  <link rel="stylesheet" href="navbar.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: url('Images/Contact.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #222;
+    }
+
+    .form-container {
+      max-width: 700px;
+      margin: 3rem auto;
+      background: rgba(255, 255, 255, 0.85); /* semi-transparent white */
+      border-radius: 10px;
+      padding: 2rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    .info-line {
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .info-line a {
+      color: #0073e6;
+      text-decoration: none;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 1.5rem;
+      row-gap: 1.5rem;
+    }
+
+    .form-grid-full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-weight: bold;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 1rem;
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    .contact-methods {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .contact-methods input[type="radio"] {
+      display: none;
+    }
+
+    .contact-methods label {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      background-color: #eee;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .contact-methods input[type="radio"]:checked + label {
+      background-color: #444;
+      color: white;
+    }
+
+    button {
+      margin-top: 1.5rem;
+      padding: 0.75rem;
+      width: 100%;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="announcement">
+    ONLY 1 Property left for 2025-2026 school year!
+  </div>
+
+  <header class="navbar">
+    <div class="nav-left">
+      <a href="aboutUs.html">About Us</a>
+      <a href="properties.html">Our Properties</a>
+      <a href="contact.html" class="active">Contact Us</a>
+      <a href="schedule.html">Schedule Tour</a>
+    </div>
+    <div class="logo"><a href="website.html"><img src="Images/LongLogo.jpg" alt="Hirsch Leasing Logo" style="height: 40px;"></a></div>
+    <div class="nav-right">
+      <a href="apply.html" class="btn">APPLY NOW</a>
+    </div>
+  </header>
+
+  <div class="form-container">
+    <h1>Contact Us</h1>
+    <p class="info-line">Fill out the form below or email us at <a href="mailto:hirschleasing@gmail.com">hirschleasing@gmail.com</a></p>
+    <form action="/contact" method="POST">
+      <div class="form-grid">
+        <div>
+          <label for="firstName">First Name</label>
+          <input type="text" id="firstName" name="firstName" required>
+        </div>
+
+        <div>
+          <label for="lastName">Last Name</label>
+          <input type="text" id="lastName" name="lastName" required>
+        </div>
+
+        <div>
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+
+        <div>
+          <label for="phone">Phone Number</label>
+          <input type="tel" id="phone" name="phone" required>
+        </div>
+
+        <div class="form-grid-full">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+        </div>
+
+        <div class="form-grid-full">
+          <label>Preferred Contact Method</label>
+          <div class="contact-methods">
+            <input type="radio" id="contactPhone" name="contactMethod" value="Phone" required>
+            <label for="contactPhone">Phone</label>
+
+            <input type="radio" id="contactEmail" name="contactMethod" value="Email">
+            <label for="contactEmail">Email</label>
+
+            <input type="radio" id="contactSMS" name="contactMethod" value="SMS">
+            <label for="contactSMS">SMS</label>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+
+</body>
+</html>
