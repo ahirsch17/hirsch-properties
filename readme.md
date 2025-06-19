@@ -1,4 +1,4 @@
-All company passwords: 3621Hirsch1031#
+All company passwords: 3XXXHxxxxx1XXX#
 
 "alexis.hirsch5@gmail.com" is the temporary sender for confirmation emails for testing purposes
 
@@ -10,7 +10,4 @@ AI:
 -kitchen pic at top of properties page
 -touring pic on schedule tour page
 
-Stolen from randoms:
--Charlotte drone pic on home page
--house pics in properties section
 
