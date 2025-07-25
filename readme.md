@@ -21,9 +21,9 @@ In the future, this project will be updated with more sustainable back-end resou
 
 _______________________________________
 
-https://hirsch-leasing.onrender.com/
+[https://hirsch-leasing.onrender.com/](https://hirsch-leasing.onrender.com/properties.html)
 
-All company passwords: 3XXXHxxxxx1XXX#
+pws: 3XXXHxxxxx1XXX#
 
 "alexis.hirsch5@gmail.com" is the temporary sender for confirmation emails for testing purposes. In the future, this would be a company email.
 
