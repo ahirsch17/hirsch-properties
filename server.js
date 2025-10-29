@@ -181,6 +181,55 @@ app.delete('/cancel/:id', async (req, res) => {
   }
 });
 
+app.post('/api/application', async (req, res) => {
+  const { firstName, lastName, email, phone, property, moveIn, duration, occupants, message } = req.body;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'alexis.hirsch5@gmail.com',
+        pass: 'idkx dgmu ndoz ffdz'
+      }
+    });
+
+    const mailOptions = {
+      from: 'alexis.hirsch5@gmail.com',
+      to: [email, 'alexis.hirsch5@gmail.com'],
+      subject: `Lease Application Received - ${property}`,
+      html: `
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
+        </div>
+        <p><strong>Dear ${firstName} ${lastName},</strong></p>
+        <p>Thank you for your interest in leasing with Hirsch Leasing!</p>
+        <p>We have received your application for <strong>${property}</strong> and will review it shortly. Here's a summary of your application:</p>
+        
+        <div style="background: #f9f9f9; padding: 1rem; border-radius: 5px; margin: 1rem 0;">
+          <p><strong>Application Details:</strong></p>
+          <p><strong>Name:</strong> ${firstName} ${lastName}<br>
+          <strong>Email:</strong> ${email}<br>
+          <strong>Phone:</strong> ${phone}<br>
+          <strong>Property:</strong> ${property}<br>
+          <strong>Preferred Move-In Date:</strong> ${moveIn}<br>
+          <strong>Lease Duration:</strong> ${duration}<br>
+          <strong>Number of Occupants:</strong> ${occupants}</p>
+          ${message ? `<p><strong>Additional Comments:</strong><br>${message}</p>` : ''}
+        </div>
+
+        <p>We will contact you within 1-2 business days to discuss next steps. If you have any urgent questions, please don't hesitate to reach out.</p>
+        <p>Best regards,<br><strong>Hirsch Leasing Team</strong></p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Application submitted successfully. Email sent.' });
+  } catch (error) {
+    console.error('Application error:', error);
+    res.status(500).json({ error: 'Server error while submitting application.' });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
