@@ -21,6 +21,10 @@ const pool = new Pool({
 // Initialize database table if it doesn't exist
 async function initializeDatabase() {
   try {
+    // Test connection first
+    await pool.query('SELECT NOW()');
+    console.log('Database connection successful');
+    
     await pool.query(`
       CREATE TABLE IF NOT EXISTS Bookings (
         id VARCHAR(255) PRIMARY KEY,
@@ -36,17 +40,19 @@ async function initializeDatabase() {
     
     // Create indexes if they don't exist
     await pool.query('CREATE INDEX IF NOT EXISTS idx_date_property ON Bookings(date, property)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_date_time ON Bookings(date, time)'); // For conflict checking
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_date ON Bookings(date)'); // For available times query
     await pool.query('CREATE INDEX IF NOT EXISTS idx_email ON Bookings(email)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_cancelId ON Bookings("cancelId")');
     
-    console.log('Database initialized successfully');
+    console.log('Database table initialized successfully');
+    return true;
   } catch (err) {
     console.error('Error initializing database:', err);
+    console.error('Database URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
+    return false;
   }
 }
-
-// Initialize database on server start
-initializeDatabase();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -84,18 +90,46 @@ app.get('/api/available-times', async (req, res) => {
   const { date, property } = req.query;
   if (!date || !property) return res.status(400).json({ error: 'Missing fields' });
 
+  // Validate date is not today or in the past
+  const selectedDate = new Date(date + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (selectedDate <= today) {
+    return res.status(400).json({ error: 'Cannot book for today or past dates. Please select a future date.' });
+  }
+
+  // Validate date is not too far in the future (60 days maximum)
+  const maxDate = new Date(today);
+  maxDate.setDate(maxDate.getDate() + 60); // 60 days from today
+  
+  if (selectedDate > maxDate) {
+    return res.status(400).json({ error: 'Tours can only be booked up to 60 days in advance. Please select an earlier date.' });
+  }
+
+  // Validate date is a weekday (0 = Sunday, 6 = Saturday)
+  const dayOfWeek = selectedDate.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return res.status(400).json({ error: 'Tours are only available on weekdays (Monday-Friday).' });
+  }
+
   const allTimes = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
   try {
+    // Check for ANY booking at this date/time (regardless of property) since only one employee
     const result = await pool.query(
-      'SELECT time FROM Bookings WHERE date = $1 AND property = $2',
-      [date, property]
+      'SELECT time FROM Bookings WHERE date = $1',
+      [date]
     );
     const bookedTimes = result.rows.map(row => row.time);
     const available = allTimes.filter(time => !bookedTimes.includes(time));
+    console.log(`Available times for ${date}:`, available);
+    console.log(`Booked times:`, bookedTimes);
     res.json({ times: available });
   } catch (err) {
     console.error('Available times error:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error details:', err.message, err.stack);
+    // Return all times as available if there's a database error (graceful degradation)
+    res.json({ times: allTimes });
   }
 });
 
@@ -119,6 +153,40 @@ app.post('/cancel/:id', async (req, res) => {
 app.post('/api/bookings', async (req, res) => {
   const { property, date, time, email, firstName, lastName } = req.body;
 
+  // Validate all required fields
+  if (!property || !date || !time || !email || !firstName || !lastName) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  // Validate date is not today or in the past
+  const selectedDate = new Date(date + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (selectedDate <= today) {
+    return res.status(400).json({ error: 'Cannot book for today or past dates. Please select a future date.' });
+  }
+
+  // Validate date is not too far in the future (60 days maximum)
+  const maxDate = new Date(today);
+  maxDate.setDate(maxDate.getDate() + 60); // 60 days from today
+  
+  if (selectedDate > maxDate) {
+    return res.status(400).json({ error: 'Tours can only be booked up to 60 days in advance. Please select an earlier date.' });
+  }
+
+  // Validate date is a weekday (0 = Sunday, 6 = Saturday)
+  const dayOfWeek = selectedDate.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return res.status(400).json({ error: 'Tours are only available on weekdays (Monday-Friday).' });
+  }
+
+  // Validate time is one of the allowed times
+  const validTimes = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
+  if (!validTimes.includes(time)) {
+    return res.status(400).json({ error: 'Invalid time slot selected.' });
+  }
+
   const cancelId = uuidv4();
   const id = uuidv4();
 
@@ -134,13 +202,13 @@ app.post('/api/bookings', async (req, res) => {
       });
     }
 
-    // Check if time slot is already taken
+    // Check if time slot is already taken (regardless of property - only one employee)
     const conflictResult = await pool.query(
       'SELECT COUNT(*) as count FROM Bookings WHERE date = $1 AND time = $2',
       [date, time]
     );
     if (conflictResult.rows[0] && parseInt(conflictResult.rows[0].count) > 0) {
-      return res.status(409).json({ error: 'That slot is already taken.' });
+      return res.status(409).json({ error: 'That time slot is already booked. Please select another time.' });
     }
 
     await pool.query(
@@ -254,6 +322,17 @@ app.post('/api/application', async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Start server after database initialization
+async function startServer() {
+  const dbInitialized = await initializeDatabase();
+  if (!dbInitialized) {
+    console.warn('Warning: Database initialization failed. Server will start but database operations may fail.');
+    console.warn('Make sure DATABASE_URL environment variable is set correctly.');
+  }
+  
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer();

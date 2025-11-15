@@ -142,8 +142,15 @@
     const propertyInput = document.getElementById('property');
   
     flatpickr("#date", {
-      minDate: new Date().fp_incr(2),
+      minDate: "tomorrow", // Can't book for today
+      maxDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from today
       dateFormat: "Y-m-d",
+      disable: [
+        function(date) {
+          // Disable weekends (0 = Sunday, 6 = Saturday)
+          return date.getDay() === 0 || date.getDay() === 6;
+        }
+      ],
       onChange: fetchAvailableTimes
     });
   
@@ -156,16 +163,29 @@
       if (!date || !property) return;
   
       fetch(`/api/available-times?date=${date}&property=${property}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            console.error('API error:', res.status, res.statusText);
+            return res.json().then(err => { throw new Error(err.error || 'Server error'); });
+          }
+          return res.json();
+        })
         .then(data => {
           timeSlotsContainer.innerHTML = '';
-  
+          console.log('Received data:', data);
+
+          if (data.error) {
+            timeSlotsContainer.innerHTML = `<p style="color: red; font-size: 0.95rem;">Error: ${data.error}</p>`;
+            selectedTime = '';
+            return;
+          }
+
           if (!data.times || data.times.length === 0) {
             timeSlotsContainer.innerHTML = '<p style="color: red; font-size: 0.95rem;">Sorry, no available times for this date. Please choose another.</p>';
             selectedTime = '';
             return;
           }
-  
+
           data.times.forEach(time => {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -177,6 +197,10 @@
             });
             timeSlotsContainer.appendChild(btn);
           });
+        })
+        .catch(err => {
+          console.error('Fetch error:', err);
+          timeSlotsContainer.innerHTML = `<p style="color: red; font-size: 0.95rem;">Error loading times: ${err.message}</p>`;
         });
     }
   

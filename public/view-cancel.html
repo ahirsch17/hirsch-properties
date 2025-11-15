@@ -81,6 +81,7 @@
           <p><strong>Property:</strong> ${booking.property}</p>
           <p><strong>Date:</strong> ${booking.date}</p>
           <p><strong>Time:</strong> ${booking.time}</p>
+          <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;"><em>Please cancel at least 24 hours in advance to allow others to book this time slot.</em></p>
         `;
       } catch (e) {
         document.getElementById('bookingInfo').innerHTML = '<p>Error loading booking information.</p>';
