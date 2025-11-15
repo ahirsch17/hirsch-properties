@@ -248,8 +248,7 @@ app.post('/api/bookings', async (req, res) => {
       [id, property, date, time, email, cancelId, firstName, lastName]
     );
 
-    // Send confirmation email (EXACT same as old working code)
-    console.log('EMAIL: Creating transporter...');
+    // Send confirmation email using Gmail SMTP (replicating old working setup)
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -277,10 +276,7 @@ app.post('/api/bookings', async (req, res) => {
       `
     };
 
-    // Send email using await (same as old code)
-    console.log('EMAIL: Attempting to send...');
     await transporter.sendMail(mailOptions);
-    console.log('EMAIL: Sent successfully!');
     res.status(200).json({ message: 'Booking confirmed. Email sent.' });
   } catch (error) {
     console.error('EMAIL ERROR:', error.message);
@@ -335,7 +331,7 @@ app.post('/api/application', async (req, res) => {
   }
 
   try {
-    // Send confirmation email (EXACT same as old working code)
+    // Send confirmation email using Gmail SMTP (replicating old working setup)
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -373,7 +369,6 @@ app.post('/api/application', async (req, res) => {
       `
     };
 
-    // Send email using await (same as old code)
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'Application submitted successfully. Email sent.' });
   } catch (error) {
