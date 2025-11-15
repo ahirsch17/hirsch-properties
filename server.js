@@ -18,6 +18,22 @@ const pool = new Pool({
   }
 });
 
+// Clean up old bookings (past dates)
+async function cleanupOldBookings() {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    const result = await pool.query(
+      'DELETE FROM Bookings WHERE date < $1',
+      [today]
+    );
+    if (result.rowCount > 0) {
+      console.log(`Cleaned up ${result.rowCount} old booking(s) from the database.`);
+    }
+  } catch (err) {
+    console.error('Error cleaning up old bookings:', err);
+  }
+}
+
 // Initialize database table if it doesn't exist
 async function initializeDatabase() {
   try {
@@ -46,6 +62,10 @@ async function initializeDatabase() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_cancelId ON Bookings("cancelId")');
     
     console.log('Database table initialized successfully');
+    
+    // Clean up old bookings on startup
+    await cleanupOldBookings();
+    
     return true;
   } catch (err) {
     console.error('Error initializing database:', err);
@@ -220,14 +240,14 @@ app.post('/api/bookings', async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'alexis.hirsch5@gmail.com',
-        pass: 'idkx dgmu ndoz ffdz'
+        user: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
+        pass: process.env.EMAIL_PASSWORD || ''
       }
     });
 
     const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
     const mailOptions = {
-      from: 'alexis.hirsch5@gmail.com',
+      from: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
       to: [email, 'hirschleasing@gmail.com'],
       subject: 'Your Tour Booking Confirmation',
       html: `
@@ -275,18 +295,39 @@ app.delete('/cancel/:id', async (req, res) => {
 app.post('/api/application', async (req, res) => {
   const { firstName, lastName, email, phone, property, moveIn, duration, occupants, message } = req.body;
 
+  // Validate all required fields
+  if (!firstName || !lastName || !email || !phone || !property || !moveIn || !duration || !occupants) {
+    return res.status(400).json({ error: 'All required fields must be filled.' });
+  }
+
+  // Validate move-in date is at least 30 days from today
+  const moveInDate = new Date(moveIn + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (moveInDate <= today) {
+    return res.status(400).json({ error: 'Move-in date must be in the future. Please select a date at least 30 days from today.' });
+  }
+
+  const minMoveInDate = new Date(today);
+  minMoveInDate.setDate(minMoveInDate.getDate() + 30); // 30 days from today
+  
+  if (moveInDate < minMoveInDate) {
+    return res.status(400).json({ error: 'Move-in date must be at least 30 days from today. Please select a later date.' });
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'alexis.hirsch5@gmail.com',
-        pass: 'idkx dgmu ndoz ffdz'
+        user: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
+        pass: process.env.EMAIL_PASSWORD || ''
       }
     });
 
     const mailOptions = {
-      from: 'alexis.hirsch5@gmail.com',
-      to: [email, 'alexis.hirsch5@gmail.com'],
+      from: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
+      to: [email, 'hirschleasing@gmail.com'],
       subject: `Lease Application Received - ${property}`,
       html: `
         <div style="text-align: center; margin-bottom: 1rem;">
@@ -333,6 +374,11 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  
+  // Clean up old bookings daily at midnight
+  setInterval(async () => {
+    await cleanupOldBookings();
+  }, 24 * 60 * 60 * 1000); // Run every 24 hours
 }
 
 startServer();

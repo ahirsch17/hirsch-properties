@@ -5,6 +5,7 @@
   <title>Apply Now - Hirsch Leasing</title>
   <link rel="icon" type="image/jpg" href="Images/Logo.jpg">
   <link rel="stylesheet" href="navbar.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body {
@@ -134,7 +135,7 @@
       </select>
 
       <label for="moveIn">Preferred Move-In Date:</label>
-      <input type="date" id="moveIn" required>
+      <input type="text" id="moveIn" required placeholder="Select a date at least 30 days from today">
 
       <label for="duration">Lease Duration:</label>
       <select id="duration" required>
@@ -155,7 +156,19 @@
     </form>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script>
+    // Initialize flatpickr for move-in date with 30-day minimum
+    const today = new Date();
+    const minDate = new Date(today);
+    minDate.setDate(minDate.getDate() + 30); // 30 days from today
+
+    flatpickr("#moveIn", {
+      minDate: minDate,
+      dateFormat: "Y-m-d",
+      placeholder: "Select a date at least 30 days from today"
+    });
+
     document.getElementById('applicationForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 

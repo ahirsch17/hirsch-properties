@@ -23,12 +23,13 @@ _______________________________________
 
 [https://hirsch-leasing.onrender.com/](https://hirsch-leasing.onrender.com/properties.html)
 
-pws: 3XXXHxxxxx1XXX#
-
-"alexis.hirsch5@gmail.com" is the temporary sender for confirmation emails for testing purposes. In the future, this would be a company email.
 
 
 AI:
 -HL logos
 -kitchen pic at top of properties page
 -touring pic on schedule tour page
+
+
+notes use: 3XXXHxxxxx1XXX#
+		   3XXXHxxxxx#1XXX
