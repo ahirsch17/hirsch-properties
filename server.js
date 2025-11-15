@@ -248,56 +248,86 @@ app.post('/api/bookings', async (req, res) => {
       [id, property, date, time, email, cancelId, firstName, lastName]
     );
 
-    // Send confirmation email using Gmail SMTP (replicating old working setup)
-    const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
-    const emailPassword = process.env.EMAIL_PASSWORD;
+    // Booking saved successfully - now try to send email (but don't fail the request if email fails)
+    let emailSent = false;
+    let emailError = null;
     
-    // Debug logging (will show in Render logs)
-    console.log('EMAIL: Creating transporter...');
-    console.log('EMAIL: User set:', !!emailUser, emailUser ? `${emailUser.substring(0, 5)}...` : 'NO');
-    console.log('EMAIL: Password set:', !!emailPassword, emailPassword ? `${emailPassword.substring(0, 3)}... (${emailPassword.length} chars)` : 'NO');
-    
-    if (!emailPassword) {
-      console.error('EMAIL ERROR: EMAIL_PASSWORD environment variable is not set!');
-      throw new Error('Email password not configured');
-    }
-    
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: emailUser,
-        pass: emailPassword
+    try {
+      // Send confirmation email using Gmail SMTP (replicating old working setup)
+      const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
+      const emailPassword = process.env.EMAIL_PASSWORD;
+      
+      // Debug logging (will show in Render logs)
+      console.log('EMAIL: Creating transporter...');
+      console.log('EMAIL: User set:', !!emailUser, emailUser ? `${emailUser.substring(0, 5)}...` : 'NO');
+      console.log('EMAIL: Password set:', !!emailPassword, emailPassword ? `${emailPassword.substring(0, 3)}... (${emailPassword.length} chars)` : 'NO');
+      
+      if (!emailPassword) {
+        throw new Error('EMAIL_PASSWORD environment variable is not set!');
       }
-    });
+      
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPassword
+        }
+      });
 
-    const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
-      to: [email, 'hirschleasing@gmail.com'],
-      subject: 'Your Tour Booking Confirmation',
-      html: `
-        <div style="text-align: center; margin-bottom: 1rem;">
-          <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
-        </div>
-        <p>${firstName}, thank you for scheduling a tour with Hirsch Leasing!</p>
-        <p><strong>Property:</strong> ${property}<br>
-        <strong>Date:</strong> ${date}<br>
-        <strong>Time:</strong> ${time}</p>
-        <p>Please arrive at the property a few minutes before your scheduled tour. Most tours take about 30–45 minutes. Feel free to bring any questions — if we don't have the answers immediately, we'll follow up soon after.</p>
-        <p>If you must cancel, please do so at least 24 hours in advance.</p>
-        <a href="${cancelLink}" style="padding: 10px 15px; background: #5a1c1c; color: white; text-decoration: none; border-radius: 5px;">Manage My Booking</a>
-      `
-    };
+      const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
+      const mailOptions = {
+        from: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
+        to: [email, 'hirschleasing@gmail.com'],
+        subject: 'Your Tour Booking Confirmation',
+        html: `
+          <div style="text-align: center; margin-bottom: 1rem;">
+            <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
+          </div>
+          <p>${firstName}, thank you for scheduling a tour with Hirsch Leasing!</p>
+          <p><strong>Property:</strong> ${property}<br>
+          <strong>Date:</strong> ${date}<br>
+          <strong>Time:</strong> ${time}</p>
+          <p>Please arrive at the property a few minutes before your scheduled tour. Most tours take about 30–45 minutes. Feel free to bring any questions — if we don't have the answers immediately, we'll follow up soon after.</p>
+          <p>If you must cancel, please do so at least 24 hours in advance.</p>
+          <a href="${cancelLink}" style="padding: 10px 15px; background: #5a1c1c; color: white; text-decoration: none; border-radius: 5px;">Manage My Booking</a>
+        `
+      };
 
-    console.log('EMAIL: Attempting to send...');
-    await transporter.sendMail(mailOptions);
-    console.log('EMAIL: Sent successfully!');
-    res.status(200).json({ message: 'Booking confirmed. Email sent.' });
+      console.log('EMAIL: Attempting to send...');
+      console.log('EMAIL: To:', email);
+      await transporter.sendMail(mailOptions);
+      console.log('EMAIL: Sent successfully!');
+      emailSent = true;
+    } catch (emailErr) {
+      // Log email error but don't fail the booking
+      emailError = emailErr;
+      console.error('EMAIL ERROR: Failed to send confirmation email');
+      console.error('EMAIL ERROR MESSAGE:', emailErr.message);
+      console.error('EMAIL ERROR CODE:', emailErr.code);
+      console.error('EMAIL ERROR STACK:', emailErr.stack);
+      if (emailErr.response) {
+        console.error('EMAIL ERROR RESPONSE:', emailErr.response);
+      }
+    }
+
+    // Always return success if booking was saved, regardless of email status
+    if (emailSent) {
+      res.status(200).json({ message: 'Booking confirmed. Email sent.' });
+    } else {
+      // Booking saved but email failed - still return success but note email issue
+      console.warn('WARNING: Booking saved but email failed. Booking ID:', id);
+      res.status(200).json({ 
+        message: 'Booking confirmed. However, the confirmation email could not be sent. Please save your booking details.',
+        emailSent: false,
+        bookingId: id,
+        cancelId: cancelId
+      });
+    }
   } catch (error) {
-    console.error('EMAIL ERROR:', error.message);
-    console.error('EMAIL ERROR CODE:', error.code);
-    console.error('Booking error:', error);
-    res.status(500).json({ error: 'Server error.' });
+    // This catch only handles database errors, not email errors
+    console.error('BOOKING ERROR:', error.message);
+    console.error('BOOKING ERROR STACK:', error.stack);
+    res.status(500).json({ error: 'Server error while saving booking.' });
   }
 });
 

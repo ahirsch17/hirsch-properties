@@ -244,11 +244,18 @@
   
         const result = await res.json();
         if (res.ok) {
-          status.textContent = '✅ Booking confirmed! Check your email for confirmation details.';
-          status.style.color = 'green';
+          // Check if email was sent successfully
+          if (result.emailSent === false) {
+            status.textContent = '✅ Booking confirmed! However, the confirmation email could not be sent. Please save your booking details or contact us if you need assistance.';
+            status.style.color = '#856404';
+            status.style.backgroundColor = '#fff3cd';
+          } else {
+            status.textContent = '✅ Booking confirmed! Check your email for confirmation details.';
+            status.style.color = 'green';
+            status.style.backgroundColor = '#d4edda';
+          }
           status.style.fontSize = '1.1rem';
           status.style.padding = '1rem';
-          status.style.backgroundColor = '#d4edda';
           status.style.borderRadius = '5px';
           status.style.marginTop = '1rem';
           // Reset form
