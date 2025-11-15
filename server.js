@@ -26,39 +26,45 @@ function createEmailTransporter() {
   
   // Prefer Resend if API key is available (more reliable on cloud platforms)
   if (resendApiKey) {
+    console.log('📧 Using Resend email service (SMTP)');
     return nodemailer.createTransport({
       host: 'smtp.resend.com',
-      port: 465,
-      secure: true,
+      port: 587, // Use port 587 with STARTTLS (more reliable than 465)
+      secure: false, // Use STARTTLS
+      requireTLS: true,
       auth: {
         user: 'resend',
         pass: resendApiKey
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 5000,
-      socketTimeout: 10000
+      connectionTimeout: 20000, // 20 seconds
+      greetingTimeout: 10000, // 10 seconds
+      socketTimeout: 20000, // 20 seconds
+      tls: {
+        rejectUnauthorized: false
+      }
     });
   }
   
   if (!emailPassword) {
-    console.warn('WARNING: EMAIL_PASSWORD or RESEND_API_KEY environment variable is not set. Emails will not be sent.');
+    console.warn('⚠️ WARNING: Neither EMAIL_PASSWORD nor RESEND_API_KEY is set. Emails will not be sent.');
+    console.warn('💡 Tip: Set RESEND_API_KEY in Render for more reliable email delivery on cloud platforms.');
     return null;
   }
 
-  // Try port 465 with SSL first (more reliable on cloud platforms)
-  // If this fails, Gmail may be blocking Render's IP addresses
-  // Consider using Resend (free tier available) or another email service
+  // Fallback to Gmail SMTP (may timeout on cloud platforms)
+  console.log('📧 Using Gmail SMTP (may timeout on Render)');
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Use SSL for port 465
+    port: 587, // Use port 587 with STARTTLS (better for cloud platforms)
+    secure: false, // Use STARTTLS
+    requireTLS: true,
     auth: {
       user: emailUser,
       pass: emailPassword
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 5000, // 5 seconds
-    socketTimeout: 10000, // 10 seconds
+    connectionTimeout: 15000, // 15 seconds
+    greetingTimeout: 10000, // 10 seconds
+    socketTimeout: 15000, // 15 seconds
     tls: {
       rejectUnauthorized: false
     }
@@ -309,7 +315,9 @@ app.post('/api/bookings', async (req, res) => {
       console.warn('Skipping email send - EMAIL_PASSWORD not configured');
     } else {
       const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
-      const fromEmail = process.env.RESEND_API_KEY ? 'onboarding@resend.dev' : emailUser;
+      // Resend requires verified domain - use hirschleasing@gmail.com for now
+      // To use Resend with your own domain, verify it in Resend dashboard first
+      const fromEmail = process.env.RESEND_API_KEY ? 'Hirsch Leasing <onboarding@resend.dev>' : emailUser;
       const mailOptions = {
         from: fromEmail,
         to: [email, 'hirschleasing@gmail.com'],
@@ -337,6 +345,13 @@ app.post('/api/bookings', async (req, res) => {
           console.error('❌ Email sending failed:', emailError.message);
           console.error('Email error code:', emailError.code);
           console.error('Email error command:', emailError.command);
+          
+          // Provide helpful error message based on error type
+          if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
+            console.error('💡 Connection timeout/refused - Gmail may be blocking Render IP addresses.');
+            console.error('💡 Solution: Set RESEND_API_KEY in Render environment variables for reliable email delivery.');
+          }
+          
           // Don't fail the booking - email is optional
         });
     }
@@ -401,7 +416,9 @@ app.post('/api/application', async (req, res) => {
     if (!transporter) {
       console.warn('Skipping email send - EMAIL_PASSWORD not configured');
     } else {
-      const fromEmail = process.env.RESEND_API_KEY ? 'onboarding@resend.dev' : emailUser;
+      // Resend requires verified domain - use hirschleasing@gmail.com for now
+      // To use Resend with your own domain, verify it in Resend dashboard first
+      const fromEmail = process.env.RESEND_API_KEY ? 'Hirsch Leasing <onboarding@resend.dev>' : emailUser;
       const mailOptions = {
         from: fromEmail,
         to: [email, 'hirschleasing@gmail.com'],
@@ -440,6 +457,13 @@ app.post('/api/application', async (req, res) => {
           console.error('❌ Email sending failed:', emailError.message);
           console.error('Email error code:', emailError.code);
           console.error('Email error command:', emailError.command);
+          
+          // Provide helpful error message based on error type
+          if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
+            console.error('💡 Connection timeout/refused - Gmail may be blocking Render IP addresses.');
+            console.error('💡 Solution: Set RESEND_API_KEY in Render environment variables for reliable email delivery.');
+          }
+          
           // Don't fail the application - email is optional
         });
     }
