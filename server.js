@@ -249,11 +249,24 @@ app.post('/api/bookings', async (req, res) => {
     );
 
     // Send confirmation email using Gmail SMTP (replicating old working setup)
+    const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
+    const emailPassword = process.env.EMAIL_PASSWORD;
+    
+    // Debug logging (will show in Render logs)
+    console.log('EMAIL: Creating transporter...');
+    console.log('EMAIL: User set:', !!emailUser, emailUser ? `${emailUser.substring(0, 5)}...` : 'NO');
+    console.log('EMAIL: Password set:', !!emailPassword, emailPassword ? `${emailPassword.substring(0, 3)}... (${emailPassword.length} chars)` : 'NO');
+    
+    if (!emailPassword) {
+      console.error('EMAIL ERROR: EMAIL_PASSWORD environment variable is not set!');
+      throw new Error('Email password not configured');
+    }
+    
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER || 'hirschleasing@gmail.com',
-        pass: process.env.EMAIL_PASSWORD
+        user: emailUser,
+        pass: emailPassword
       }
     });
 
@@ -276,7 +289,9 @@ app.post('/api/bookings', async (req, res) => {
       `
     };
 
+    console.log('EMAIL: Attempting to send...');
     await transporter.sendMail(mailOptions);
+    console.log('EMAIL: Sent successfully!');
     res.status(200).json({ message: 'Booking confirmed. Email sent.' });
   } catch (error) {
     console.error('EMAIL ERROR:', error.message);
