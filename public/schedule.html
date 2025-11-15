@@ -78,6 +78,8 @@
       margin-top: 1rem;
       text-align: center;
       font-weight: bold;
+      display: block;
+      min-height: 2rem;
     }
   </style>
 </head>
@@ -141,14 +143,29 @@
     const dateInput = document.getElementById('date');
     const propertyInput = document.getElementById('property');
   
+    // Calculate tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
     flatpickr("#date", {
-      minDate: "tomorrow", // Can't book for today
+      minDate: tomorrow, // Can't book for today - must be tomorrow or later
       maxDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from today
       dateFormat: "Y-m-d",
+      disableMobile: true, // Use flatpickr on mobile too to ensure validation
+      allowInput: false, // Prevent manual date entry to enforce validation
       disable: [
         function(date) {
           // Disable weekends (0 = Sunday, 6 = Saturday)
           return date.getDay() === 0 || date.getDay() === 6;
+        },
+        function(date) {
+          // Explicitly disable today and past dates
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const checkDate = new Date(date);
+          checkDate.setHours(0, 0, 0, 0);
+          return checkDate <= today;
         }
       ],
       onChange: fetchAvailableTimes
@@ -227,11 +244,31 @@
   
         const result = await res.json();
         if (res.ok) {
-          status.textContent = 'Booking confirmed!';
+          status.textContent = '✅ Booking confirmed! Check your email for confirmation details.';
           status.style.color = 'green';
+          status.style.fontSize = '1.1rem';
+          status.style.padding = '1rem';
+          status.style.backgroundColor = '#d4edda';
+          status.style.borderRadius = '5px';
+          status.style.marginTop = '1rem';
+          // Reset form
+          document.getElementById('property').value = '';
+          dateInput.value = '';
+          document.getElementById('firstName').value = '';
+          document.getElementById('lastName').value = '';
+          document.getElementById('email').value = '';
+          selectedTime = '';
+          timeSlotsContainer.innerHTML = '';
+          // Scroll to status message
+          status.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
           status.textContent = result.error || 'Something went wrong.';
           status.style.color = 'red';
+          status.style.fontSize = '1rem';
+          status.style.padding = '0.75rem';
+          status.style.backgroundColor = '#f8d7da';
+          status.style.borderRadius = '5px';
+          status.style.marginTop = '1rem';
         }
       } catch (err) {
         status.textContent = 'Server connection failed.';

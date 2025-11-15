@@ -161,12 +161,22 @@
     // Initialize flatpickr for move-in date with 30-day minimum
     const today = new Date();
     const minDate = new Date(today);
-    minDate.setDate(minDate.getDate() + 30); // 30 days from today
+    minDate.setDate(minDate.getDate() + 30); // 30 days from today (reasonable move-in time)
 
     flatpickr("#moveIn", {
       minDate: minDate,
       dateFormat: "Y-m-d",
-      placeholder: "Select a date at least 30 days from today"
+      disableMobile: true, // Use flatpickr on mobile too to ensure validation
+      allowInput: false, // Prevent manual date entry to enforce validation
+      placeholder: "Select a date at least 30 days from today",
+      disable: [
+        function(date) {
+          // Explicitly disable dates before minimum (prevents selecting dates too soon)
+          const checkDate = new Date(date);
+          checkDate.setHours(0, 0, 0, 0);
+          return checkDate < minDate;
+        }
+      ]
     });
 
     document.getElementById('applicationForm').addEventListener('submit', async (e) => {
