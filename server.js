@@ -130,7 +130,7 @@ app.post('/api/bookings', async (req, res) => {
     );
     if (existingResult.rows.length > 0) {
       return res.status(409).json({
-        error: 'It looks like you've already booked a tour. Check your email for confirmation — you can cancel from there to reschedule.'
+        error: "It looks like you've already booked a tour. Check your email for confirmation — you can cancel from there to reschedule."
       });
     }
 
