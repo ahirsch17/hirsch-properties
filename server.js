@@ -22,30 +22,45 @@ const pool = new Pool({
 function createEmailTransporter() {
   const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
   const emailPassword = process.env.EMAIL_PASSWORD;
+  const resendApiKey = process.env.RESEND_API_KEY;
+  
+  // Prefer Resend if API key is available (more reliable on cloud platforms)
+  if (resendApiKey) {
+    return nodemailer.createTransport({
+      host: 'smtp.resend.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: 'resend',
+        pass: resendApiKey
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000
+    });
+  }
   
   if (!emailPassword) {
-    console.warn('WARNING: EMAIL_PASSWORD environment variable is not set. Emails will not be sent.');
+    console.warn('WARNING: EMAIL_PASSWORD or RESEND_API_KEY environment variable is not set. Emails will not be sent.');
     return null;
   }
 
-  // Try port 587 with STARTTLS (better for cloud hosting like Render)
-  // If connection still times out, Gmail may be blocking Render's IP addresses
-  // Alternative: Use a service like SendGrid, Resend, or Mailgun
+  // Try port 465 with SSL first (more reliable on cloud platforms)
+  // If this fails, Gmail may be blocking Render's IP addresses
+  // Consider using Resend (free tier available) or another email service
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS for port 587
-    requireTLS: true, // Require TLS encryption
+    port: 465,
+    secure: true, // Use SSL for port 465
     auth: {
       user: emailUser,
       pass: emailPassword
     },
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 15000, // 15 seconds
-    socketTimeout: 30000, // 30 seconds
-    // TLS options
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 5000, // 5 seconds
+    socketTimeout: 10000, // 10 seconds
     tls: {
-      rejectUnauthorized: false // Allow self-signed certificates (needed for some cloud platforms)
+      rejectUnauthorized: false
     }
   });
 }
@@ -294,8 +309,9 @@ app.post('/api/bookings', async (req, res) => {
       console.warn('Skipping email send - EMAIL_PASSWORD not configured');
     } else {
       const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
+      const fromEmail = process.env.RESEND_API_KEY ? 'onboarding@resend.dev' : emailUser;
       const mailOptions = {
-        from: emailUser,
+        from: fromEmail,
         to: [email, 'hirschleasing@gmail.com'],
         subject: 'Your Tour Booking Confirmation',
         html: `
@@ -385,8 +401,9 @@ app.post('/api/application', async (req, res) => {
     if (!transporter) {
       console.warn('Skipping email send - EMAIL_PASSWORD not configured');
     } else {
+      const fromEmail = process.env.RESEND_API_KEY ? 'onboarding@resend.dev' : emailUser;
       const mailOptions = {
-        from: emailUser,
+        from: fromEmail,
         to: [email, 'hirschleasing@gmail.com'],
         subject: `Lease Application Received - ${property}`,
         html: `
