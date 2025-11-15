@@ -4,6 +4,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { v4: uuidv4 } = require('uuid');
 const { Pool } = require('pg');
 
@@ -18,43 +19,25 @@ const pool = new Pool({
   }
 });
 
-// Create email transporter (reusable)
+// Create Resend client (reusable)
+function createResendClient() {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  
+  if (resendApiKey) {
+    console.log('📧 Using Resend API (recommended for cloud platforms)');
+    return new Resend(resendApiKey);
+  }
+  
+  return null;
+}
+
+// Create email transporter (reusable - fallback to Gmail SMTP)
 function createEmailTransporter() {
   const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
   const emailPassword = process.env.EMAIL_PASSWORD;
-  const resendApiKey = process.env.RESEND_API_KEY;
-  
-  // Prefer Resend if API key is available (more reliable on cloud platforms)
-  if (resendApiKey) {
-    console.log('📧 Using Resend email service (SMTP)');
-    console.log('   API Key present:', resendApiKey ? 'Yes' : 'No');
-    console.log('   SMTP Host: smtp.resend.com');
-    console.log('   Port: 587 (STARTTLS)');
-    
-    return nodemailer.createTransport({
-      host: 'smtp.resend.com',
-      port: 587, // Use port 587 with STARTTLS (more reliable than 465)
-      secure: false, // Use STARTTLS
-      requireTLS: true,
-      auth: {
-        user: 'resend',
-        pass: resendApiKey
-      },
-      connectionTimeout: 20000, // 20 seconds
-      greetingTimeout: 10000, // 10 seconds
-      socketTimeout: 20000, // 20 seconds
-      tls: {
-        rejectUnauthorized: false
-      },
-      // Enable debug mode to see SMTP traffic
-      debug: true, // Logs SMTP traffic
-      logger: true // Logs to console
-    });
-  }
   
   if (!emailPassword) {
-    console.warn('⚠️ WARNING: Neither EMAIL_PASSWORD nor RESEND_API_KEY is set. Emails will not be sent.');
-    console.warn('💡 Tip: Set RESEND_API_KEY in Render for more reliable email delivery on cloud platforms.');
+    console.warn('⚠️ WARNING: EMAIL_PASSWORD is not set. Gmail SMTP will not work.');
     return null;
   }
 
@@ -76,6 +59,86 @@ function createEmailTransporter() {
       rejectUnauthorized: false
     }
   });
+}
+
+// Send email using Resend API or fallback to SMTP
+async function sendEmail(options) {
+  const { from, to, subject, html } = options;
+  const resend = createResendClient();
+  const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
+  
+  // Prefer Resend API if available (more reliable on cloud platforms)
+  if (resend) {
+    try {
+      console.log('📧 Sending email via Resend API...');
+      console.log('   From:', from);
+      console.log('   To:', Array.isArray(to) ? to.join(', ') : to);
+      console.log('   Subject:', subject);
+      
+      const result = await resend.emails.send({
+        from: from || `Hirsch Leasing <${emailUser}>`,
+        to: Array.isArray(to) ? to : [to],
+        subject: subject,
+        html: html
+      });
+      
+      console.log('✅ Email sent successfully via Resend API!');
+      console.log('   Email ID:', result.data?.id);
+      console.log('   Response:', result);
+      return { success: true, id: result.data?.id };
+    } catch (error) {
+      console.error('❌ Resend API error:', error.message);
+      console.error('   Error details:', error);
+      
+      // Fallback to Gmail SMTP if Resend fails
+      console.log('🔄 Falling back to Gmail SMTP...');
+      return await sendEmailViaSMTP(options);
+    }
+  }
+  
+  // Fallback to Gmail SMTP
+  return await sendEmailViaSMTP(options);
+}
+
+// Send email via SMTP (Gmail fallback)
+async function sendEmailViaSMTP(options) {
+  const { from, to, subject, html } = options;
+  const transporter = createEmailTransporter();
+  
+  if (!transporter) {
+    console.error('❌ No email service configured. Set RESEND_API_KEY or EMAIL_PASSWORD.');
+    return { success: false, error: 'No email service configured' };
+  }
+  
+  try {
+    console.log('📧 Sending email via SMTP...');
+    console.log('   From:', from);
+    console.log('   To:', Array.isArray(to) ? to.join(', ') : to);
+    console.log('   Subject:', subject);
+    
+    const info = await transporter.sendMail({
+      from: from,
+      to: Array.isArray(to) ? to : [to],
+      subject: subject,
+      html: html
+    });
+    
+    console.log('✅ Email sent successfully via SMTP!');
+    console.log('   Message ID:', info.messageId);
+    console.log('   Response:', info.response);
+    return { success: true, id: info.messageId };
+  } catch (error) {
+    console.error('❌ SMTP error:', error.message);
+    console.error('   Error code:', error.code);
+    console.error('   Error command:', error.command);
+    
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+      console.error('💡 Connection timeout/refused - SMTP ports may be blocked on Render.');
+      console.error('💡 Solution: Use RESEND_API_KEY for reliable email delivery on cloud platforms.');
+    }
+    
+    return { success: false, error: error.message };
+  }
 }
 
 // Clean up old bookings (past dates)
@@ -314,81 +377,33 @@ app.post('/api/bookings', async (req, res) => {
     );
 
 
-    // Create email transporter
-    const transporter = createEmailTransporter();
+    // Send confirmation email (non-blocking - uses Resend API or SMTP fallback)
     const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
+    const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
+    const fromEmail = `Hirsch Leasing <${emailUser}>`;
+    
+    const emailOptions = {
+      from: fromEmail,
+      to: [email, 'hirschleasing@gmail.com'],
+      subject: 'Your Tour Booking Confirmation',
+      html: `
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
+        </div>
+        <p>${firstName}, thank you for scheduling a tour with Hirsch Leasing!</p>
+        <p><strong>Property:</strong> ${property}<br>
+        <strong>Date:</strong> ${date}<br>
+        <strong>Time:</strong> ${time}</p>
+        <p>Please arrive at the property a few minutes before your scheduled tour. Most tours take about 30–45 minutes. Feel free to bring any questions — if we don't have the answers immediately, we'll follow up soon after.</p>
+        <p>If you must cancel, please do so at least 24 hours in advance.</p>
+        <a href="${cancelLink}" style="padding: 10px 15px; background: #5a1c1c; color: white; text-decoration: none; border-radius: 5px;">Manage My Booking</a>
+      `
+    };
 
-    if (!transporter) {
-      console.warn('Skipping email send - EMAIL_PASSWORD not configured');
-    } else {
-      const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
-      // For Resend: Use your verified domain email or the default email
-      // If using Resend, you need to verify your domain in Resend dashboard
-      // For now, use the emailUser even with Resend until domain is verified
-      const fromEmail = process.env.RESEND_API_KEY ? `Hirsch Leasing <${emailUser}>` : emailUser;
-      const mailOptions = {
-        from: fromEmail,
-        to: [email, 'hirschleasing@gmail.com'],
-        subject: 'Your Tour Booking Confirmation',
-        html: `
-          <div style="text-align: center; margin-bottom: 1rem;">
-            <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
-          </div>
-          <p>${firstName}, thank you for scheduling a tour with Hirsch Leasing!</p>
-          <p><strong>Property:</strong> ${property}<br>
-          <strong>Date:</strong> ${date}<br>
-          <strong>Time:</strong> ${time}</p>
-          <p>Please arrive at the property a few minutes before your scheduled tour. Most tours take about 30–45 minutes. Feel free to bring any questions — if we don't have the answers immediately, we'll follow up soon after.</p>
-          <p>If you must cancel, please do so at least 24 hours in advance.</p>
-          <a href="${cancelLink}" style="padding: 10px 15px; background: #5a1c1c; color: white; text-decoration: none; border-radius: 5px;">Manage My Booking</a>
-        `
-      };
-
-      // Send email, but don't fail the booking if email fails
-      console.log('📧 Attempting to send email...');
-      console.log('   From:', fromEmail);
-      console.log('   To:', email, 'hirschleasing@gmail.com');
-      console.log('   Subject:', mailOptions.subject);
-      
-      // Use async/await with try/catch for better error handling
-      (async () => {
-        try {
-          const info = await transporter.sendMail(mailOptions);
-          console.log('✅ Booking confirmation email sent successfully!');
-          console.log('   Response:', info.response);
-          console.log('   Message ID:', info.messageId);
-          console.log('   Accepted recipients:', info.accepted);
-          console.log('   Rejected recipients:', info.rejected);
-        } catch (emailError) {
-          console.error('❌ Email sending failed!');
-          console.error('   Error message:', emailError.message);
-          console.error('   Error code:', emailError.code);
-          console.error('   Error command:', emailError.command);
-          
-          if (emailError.response) {
-            console.error('   SMTP response:', emailError.response);
-          }
-          
-          if (emailError.responseCode) {
-            console.error('   Response code:', emailError.responseCode);
-          }
-          
-          // Provide helpful error message based on error type
-          if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
-            console.error('💡 Connection timeout/refused - This might be a network issue.');
-            if (process.env.RESEND_API_KEY) {
-              console.error('💡 Check Resend API key and SMTP configuration.');
-            } else {
-              console.error('💡 Gmail may be blocking Render IP addresses.');
-            }
-          } else if (emailError.responseCode === 535) {
-            console.error('💡 Authentication failed - Check your email credentials or API key.');
-          } else if (emailError.responseCode === 550) {
-            console.error('💡 Invalid sender address - Verify your domain in Resend dashboard.');
-          }
-        }
-      })();
-    }
+    // Send email asynchronously (don't block the response)
+    sendEmail(emailOptions).catch(err => {
+      console.error('Email sending error (non-blocking):', err);
+    });
     
     res.status(200).json({ message: 'Booking confirmed. Email sent.' });
   } catch (error) {
@@ -443,91 +458,43 @@ app.post('/api/application', async (req, res) => {
   }
 
   try {
-    // Create email transporter
-    const transporter = createEmailTransporter();
+    // Send confirmation email (non-blocking - uses Resend API or SMTP fallback)
     const emailUser = process.env.EMAIL_USER || 'hirschleasing@gmail.com';
+    const fromEmail = `Hirsch Leasing <${emailUser}>`;
+    
+    const emailOptions = {
+      from: fromEmail,
+      to: [email, 'hirschleasing@gmail.com'],
+      subject: `Lease Application Received - ${property}`,
+      html: `
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
+        </div>
+        <p><strong>Dear ${firstName} ${lastName},</strong></p>
+        <p>Thank you for your interest in leasing with Hirsch Leasing!</p>
+        <p>We have received your application for <strong>${property}</strong> and will review it shortly. Here's a summary of your application:</p>
+        
+        <div style="background: #f9f9f9; padding: 1rem; border-radius: 5px; margin: 1rem 0;">
+          <p><strong>Application Details:</strong></p>
+          <p><strong>Name:</strong> ${firstName} ${lastName}<br>
+          <strong>Email:</strong> ${email}<br>
+          <strong>Phone:</strong> ${phone}<br>
+          <strong>Property:</strong> ${property}<br>
+          <strong>Preferred Move-In Date:</strong> ${moveIn}<br>
+          <strong>Lease Duration:</strong> ${duration}<br>
+          <strong>Number of Occupants:</strong> ${occupants}</p>
+          ${message ? `<p><strong>Additional Comments:</strong><br>${message}</p>` : ''}
+        </div>
 
-    if (!transporter) {
-      console.warn('Skipping email send - EMAIL_PASSWORD not configured');
-    } else {
-      // For Resend: Use your verified domain email or the default email
-      // If using Resend, you need to verify your domain in Resend dashboard
-      // For now, use the emailUser even with Resend until domain is verified
-      const fromEmail = process.env.RESEND_API_KEY ? `Hirsch Leasing <${emailUser}>` : emailUser;
-      const mailOptions = {
-        from: fromEmail,
-        to: [email, 'hirschleasing@gmail.com'],
-        subject: `Lease Application Received - ${property}`,
-        html: `
-          <div style="text-align: center; margin-bottom: 1rem;">
-            <img src="https://hirsch-leasing.onrender.com/Images/Logo.jpg" alt="Hirsch Leasing Logo" style="height: 60px;" />
-          </div>
-          <p><strong>Dear ${firstName} ${lastName},</strong></p>
-          <p>Thank you for your interest in leasing with Hirsch Leasing!</p>
-          <p>We have received your application for <strong>${property}</strong> and will review it shortly. Here's a summary of your application:</p>
-          
-          <div style="background: #f9f9f9; padding: 1rem; border-radius: 5px; margin: 1rem 0;">
-            <p><strong>Application Details:</strong></p>
-            <p><strong>Name:</strong> ${firstName} ${lastName}<br>
-            <strong>Email:</strong> ${email}<br>
-            <strong>Phone:</strong> ${phone}<br>
-            <strong>Property:</strong> ${property}<br>
-            <strong>Preferred Move-In Date:</strong> ${moveIn}<br>
-            <strong>Lease Duration:</strong> ${duration}<br>
-            <strong>Number of Occupants:</strong> ${occupants}</p>
-            ${message ? `<p><strong>Additional Comments:</strong><br>${message}</p>` : ''}
-          </div>
+        <p>We will contact you within 1-2 business days to discuss next steps. If you have any urgent questions, please don't hesitate to reach out.</p>
+        <p>Best regards,<br><strong>Hirsch Leasing Team</strong></p>
+      `
+    };
 
-          <p>We will contact you within 1-2 business days to discuss next steps. If you have any urgent questions, please don't hesitate to reach out.</p>
-          <p>Best regards,<br><strong>Hirsch Leasing Team</strong></p>
-        `
-      };
-
-      // Send email, but don't fail the application if email fails
-      console.log('📧 Attempting to send application email...');
-      console.log('   From:', fromEmail);
-      console.log('   To:', email, 'hirschleasing@gmail.com');
-      console.log('   Subject:', mailOptions.subject);
-      
-      // Use async/await with try/catch for better error handling
-      (async () => {
-        try {
-          const info = await transporter.sendMail(mailOptions);
-          console.log('✅ Application confirmation email sent successfully!');
-          console.log('   Response:', info.response);
-          console.log('   Message ID:', info.messageId);
-          console.log('   Accepted recipients:', info.accepted);
-          console.log('   Rejected recipients:', info.rejected);
-        } catch (emailError) {
-          console.error('❌ Email sending failed!');
-          console.error('   Error message:', emailError.message);
-          console.error('   Error code:', emailError.code);
-          console.error('   Error command:', emailError.command);
-          
-          if (emailError.response) {
-            console.error('   SMTP response:', emailError.response);
-          }
-          
-          if (emailError.responseCode) {
-            console.error('   Response code:', emailError.responseCode);
-          }
-          
-          // Provide helpful error message based on error type
-          if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
-            console.error('💡 Connection timeout/refused - This might be a network issue.');
-            if (process.env.RESEND_API_KEY) {
-              console.error('💡 Check Resend API key and SMTP configuration.');
-            } else {
-              console.error('💡 Gmail may be blocking Render IP addresses.');
-            }
-          } else if (emailError.responseCode === 535) {
-            console.error('💡 Authentication failed - Check your email credentials or API key.');
-          } else if (emailError.responseCode === 550) {
-            console.error('💡 Invalid sender address - Verify your domain in Resend dashboard.');
-          }
-        }
-      })();
-    }
+    // Send email asynchronously (don't block the response)
+    sendEmail(emailOptions).catch(err => {
+      console.error('Email sending error (non-blocking):', err);
+    });
     
     res.status(200).json({ message: 'Application submitted successfully. Email sent.' });
   } catch (error) {
