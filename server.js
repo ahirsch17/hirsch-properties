@@ -27,6 +27,10 @@ function createEmailTransporter() {
   // Prefer Resend if API key is available (more reliable on cloud platforms)
   if (resendApiKey) {
     console.log('📧 Using Resend email service (SMTP)');
+    console.log('   API Key present:', resendApiKey ? 'Yes' : 'No');
+    console.log('   SMTP Host: smtp.resend.com');
+    console.log('   Port: 587 (STARTTLS)');
+    
     return nodemailer.createTransport({
       host: 'smtp.resend.com',
       port: 587, // Use port 587 with STARTTLS (more reliable than 465)
@@ -41,7 +45,10 @@ function createEmailTransporter() {
       socketTimeout: 20000, // 20 seconds
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      // Enable debug mode to see SMTP traffic
+      debug: true, // Logs SMTP traffic
+      logger: true // Logs to console
     });
   }
   
@@ -315,9 +322,10 @@ app.post('/api/bookings', async (req, res) => {
       console.warn('Skipping email send - EMAIL_PASSWORD not configured');
     } else {
       const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
-      // Resend requires verified domain - use hirschleasing@gmail.com for now
-      // To use Resend with your own domain, verify it in Resend dashboard first
-      const fromEmail = process.env.RESEND_API_KEY ? 'Hirsch Leasing <onboarding@resend.dev>' : emailUser;
+      // For Resend: Use your verified domain email or the default email
+      // If using Resend, you need to verify your domain in Resend dashboard
+      // For now, use the emailUser even with Resend until domain is verified
+      const fromEmail = process.env.RESEND_API_KEY ? `Hirsch Leasing <${emailUser}>` : emailUser;
       const mailOptions = {
         from: fromEmail,
         to: [email, 'hirschleasing@gmail.com'],
@@ -337,23 +345,49 @@ app.post('/api/bookings', async (req, res) => {
       };
 
       // Send email, but don't fail the booking if email fails
-      transporter.sendMail(mailOptions)
-        .then(() => {
-          console.log('✅ Booking confirmation email sent successfully to:', email);
-        })
-        .catch((emailError) => {
-          console.error('❌ Email sending failed:', emailError.message);
-          console.error('Email error code:', emailError.code);
-          console.error('Email error command:', emailError.command);
+      console.log('📧 Attempting to send email...');
+      console.log('   From:', fromEmail);
+      console.log('   To:', email, 'hirschleasing@gmail.com');
+      console.log('   Subject:', mailOptions.subject);
+      
+      // Use async/await with try/catch for better error handling
+      (async () => {
+        try {
+          const info = await transporter.sendMail(mailOptions);
+          console.log('✅ Booking confirmation email sent successfully!');
+          console.log('   Response:', info.response);
+          console.log('   Message ID:', info.messageId);
+          console.log('   Accepted recipients:', info.accepted);
+          console.log('   Rejected recipients:', info.rejected);
+        } catch (emailError) {
+          console.error('❌ Email sending failed!');
+          console.error('   Error message:', emailError.message);
+          console.error('   Error code:', emailError.code);
+          console.error('   Error command:', emailError.command);
+          
+          if (emailError.response) {
+            console.error('   SMTP response:', emailError.response);
+          }
+          
+          if (emailError.responseCode) {
+            console.error('   Response code:', emailError.responseCode);
+          }
           
           // Provide helpful error message based on error type
           if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
-            console.error('💡 Connection timeout/refused - Gmail may be blocking Render IP addresses.');
-            console.error('💡 Solution: Set RESEND_API_KEY in Render environment variables for reliable email delivery.');
+            console.error('💡 Connection timeout/refused - This might be a network issue.');
+            if (process.env.RESEND_API_KEY) {
+              console.error('💡 Check Resend API key and SMTP configuration.');
+            } else {
+              console.error('💡 Gmail may be blocking Render IP addresses.');
+            }
+          } else if (emailError.responseCode === 535) {
+            console.error('💡 Authentication failed - Check your email credentials or API key.');
+          } else if (emailError.responseCode === 550) {
+            console.error('💡 Invalid sender address - Verify your domain in Resend dashboard.');
           }
-          
-          // Don't fail the booking - email is optional
-        });
+        }
+      })();
     }
     
     res.status(200).json({ message: 'Booking confirmed. Email sent.' });
@@ -416,9 +450,10 @@ app.post('/api/application', async (req, res) => {
     if (!transporter) {
       console.warn('Skipping email send - EMAIL_PASSWORD not configured');
     } else {
-      // Resend requires verified domain - use hirschleasing@gmail.com for now
-      // To use Resend with your own domain, verify it in Resend dashboard first
-      const fromEmail = process.env.RESEND_API_KEY ? 'Hirsch Leasing <onboarding@resend.dev>' : emailUser;
+      // For Resend: Use your verified domain email or the default email
+      // If using Resend, you need to verify your domain in Resend dashboard
+      // For now, use the emailUser even with Resend until domain is verified
+      const fromEmail = process.env.RESEND_API_KEY ? `Hirsch Leasing <${emailUser}>` : emailUser;
       const mailOptions = {
         from: fromEmail,
         to: [email, 'hirschleasing@gmail.com'],
@@ -449,23 +484,49 @@ app.post('/api/application', async (req, res) => {
       };
 
       // Send email, but don't fail the application if email fails
-      transporter.sendMail(mailOptions)
-        .then(() => {
-          console.log('✅ Application confirmation email sent successfully to:', email);
-        })
-        .catch((emailError) => {
-          console.error('❌ Email sending failed:', emailError.message);
-          console.error('Email error code:', emailError.code);
-          console.error('Email error command:', emailError.command);
+      console.log('📧 Attempting to send application email...');
+      console.log('   From:', fromEmail);
+      console.log('   To:', email, 'hirschleasing@gmail.com');
+      console.log('   Subject:', mailOptions.subject);
+      
+      // Use async/await with try/catch for better error handling
+      (async () => {
+        try {
+          const info = await transporter.sendMail(mailOptions);
+          console.log('✅ Application confirmation email sent successfully!');
+          console.log('   Response:', info.response);
+          console.log('   Message ID:', info.messageId);
+          console.log('   Accepted recipients:', info.accepted);
+          console.log('   Rejected recipients:', info.rejected);
+        } catch (emailError) {
+          console.error('❌ Email sending failed!');
+          console.error('   Error message:', emailError.message);
+          console.error('   Error code:', emailError.code);
+          console.error('   Error command:', emailError.command);
+          
+          if (emailError.response) {
+            console.error('   SMTP response:', emailError.response);
+          }
+          
+          if (emailError.responseCode) {
+            console.error('   Response code:', emailError.responseCode);
+          }
           
           // Provide helpful error message based on error type
           if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
-            console.error('💡 Connection timeout/refused - Gmail may be blocking Render IP addresses.');
-            console.error('💡 Solution: Set RESEND_API_KEY in Render environment variables for reliable email delivery.');
+            console.error('💡 Connection timeout/refused - This might be a network issue.');
+            if (process.env.RESEND_API_KEY) {
+              console.error('💡 Check Resend API key and SMTP configuration.');
+            } else {
+              console.error('💡 Gmail may be blocking Render IP addresses.');
+            }
+          } else if (emailError.responseCode === 535) {
+            console.error('💡 Authentication failed - Check your email credentials or API key.');
+          } else if (emailError.responseCode === 550) {
+            console.error('💡 Invalid sender address - Verify your domain in Resend dashboard.');
           }
-          
-          // Don't fail the application - email is optional
-        });
+        }
+      })();
     }
     
     res.status(200).json({ message: 'Application submitted successfully. Email sent.' });
