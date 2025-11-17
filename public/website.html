@@ -6,6 +6,7 @@
   <link rel="icon" type="image/jpg" href="Images/Logo.jpg">
   <link rel="stylesheet" href="navbar.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .hero {
       position: relative;
@@ -13,11 +14,6 @@
       background-size: cover;
       background-position: center;
       height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: white;
     }
 
     .overlay {
@@ -28,34 +24,6 @@
       height: 100%;
       background-color: rgba(0, 0, 0, 0.5);
       z-index: 0;
-    }
-
-    .hero-text {
-      position: relative;
-      z-index: 1;
-      max-width: 700px;
-      padding: 0 1rem;
-    }
-
-    .hero-text h1 {
-      font-size: 2.2rem;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
-    }
-
-    .hero-btn {
-      background-color: white;
-      color: #000;
-      font-weight: 600;
-      padding: 0.75rem 1.5rem;
-      border-radius: 4px;
-      text-decoration: none;
-      transition: background 0.3s ease;
-      display: inline-block;
-    }
-
-    .hero-btn:hover {
-      background-color: #eee;
     }
 
     .restrictions {
@@ -87,9 +55,26 @@
 
   <section class="hero">
     <div class="overlay"></div>
-    <div class="hero-text">
-      <h1>Rentals in Kannapolis</h1>
-      <a href="schedule.html" class="hero-btn">SCHEDULE TOUR</a>
+    <div class="relative flex items-center justify-center min-h-[60vh]">
+      <div class="relative z-10 px-6 py-8 bg-black/40 backdrop-blur-md rounded-xl max-w-xl text-center">
+        <p class="text-xs tracking-[0.25em] text-white/70 uppercase mb-3">
+          Hirsch Leasing LLC
+        </p>
+        <h1 class="text-3xl sm:text-4xl font-semibold text-white mb-3">
+          Rentals in Kannapolis
+        </h1>
+        <p class="text-sm sm:text-base text-white/80 mb-6">
+          Modern, comfortable homes within minutes of downtown and local campuses.
+        </p>
+        <div class="flex justify-center">
+          <a
+            href="schedule.html"
+            class="inline-flex items-center justify-center px-6 py-3 text-sm font-semibold bg-white text-slate-900 rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition"
+          >
+            Schedule Tour
+          </a>
+        </div>
+      </div>
     </div>
   </section>
 

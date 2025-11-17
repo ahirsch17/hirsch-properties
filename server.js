@@ -266,13 +266,17 @@ app.post('/api/bookings', async (req, res) => {
         throw new Error('EMAIL_PASSWORD environment variable is not set!');
       }
       
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: emailUser,
-          pass: emailPassword
-        }
-      });
+       const transporter = nodemailer.createTransport({
+         service: 'gmail',
+         auth: {
+           user: emailUser,
+           pass: emailPassword
+         },
+         // Add timeout settings to see error faster
+         connectionTimeout: 10000, // 10 seconds
+         greetingTimeout: 10000,
+         socketTimeout: 10000
+       });
 
       const cancelLink = `https://hirsch-leasing.onrender.com/view-cancel.html?id=${cancelId}`;
       const mailOptions = {
