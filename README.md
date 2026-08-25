@@ -2,7 +2,7 @@
 
 Full-stack demo leasing site that simulates a real property browsing and tour-booking flow, with server-side conflict prevention and a PostgreSQL-backed bookings table.
 
-- **Live demo**: `https://hirsch-leasing.onrender.com/properties.html`
+- **Live demo**: Currently offline (Render free tier suspended). Clone and run locally — see below.
 - **Note**: Listings/images are sample content used for demonstration.
 
 ## What this repo demonstrates
