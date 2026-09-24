@@ -1,66 +1,54 @@
-# Hirsch Leasing (RealEstateHirsch)
+# Hirsch Properties
 
-Full-stack demo leasing site that simulates a real property browsing and tour-booking flow, with server-side conflict prevention and a PostgreSQL-backed bookings table.
+Full-stack demo leasing site: browse listings, book tours, and cancel bookings. Server-side conflict checks prevent double-booking. Bookings are stored in PostgreSQL.
 
-- **Live demo**: Currently offline (Render free tier suspended). Clone and run locally — see below.
-- **Note**: Listings/images are sample content used for demonstration.
+Live demo is currently offline (Render free tier). Clone and run locally.
 
-## What this repo demonstrates
+Listings and images are sample content for demonstration.
 
-- A responsive marketing + listings experience (static site served from `public/`)
-- API-backed tour scheduling with **double-booking prevention**
-- Booking management via a cancellation link (`cancelId`)
-- Postgres integration (Neon-compatible) with indexes for fast conflict checks
+## What it shows
 
-## Tech stack
+- Static marketing and listings pages from `public/`
+- Tour scheduling API with double-booking prevention
+- Cancellation via a `cancelId` link
+- Postgres indexes for availability checks
 
-- **Backend**: Node.js + Express
-- **Database**: PostgreSQL (`pg`)
-- **Email**: Nodemailer (SMTP) for confirmations (optional)
-- **Hosting**: Render (demo)
+## Stack
 
-## Repo layout
+- Node.js + Express
+- PostgreSQL (`pg`)
+- Nodemailer (optional confirmations)
+- Render (when hosted)
 
-- `server.js`: Express server + API routes
-- `public/`: Frontend pages, styles, and client scripts
-- `init-db.sql`: Optional SQL to bootstrap the database
-- `test-email.js`: Utility script to verify SMTP credentials locally
+## Layout
+
+- `server.js`: Express server and API routes
+- `public/`: Frontend
+- `init-db.sql`: Optional bootstrap SQL
+- `test-email.js`: Local SMTP check
 
 ## Run locally
 
-### Prerequisites
-
-- Node.js 18+
-- npm
-- A PostgreSQL database (local or hosted)
-
-### Setup
+Needs Node 18+, npm, and a Postgres database.
 
 ```bash
 npm install
 ```
 
-Create a `.env` file (see `.env.example`) and set:
+Create a `.env` (see `.env.example` if present):
 
-- `DATABASE_URL` (required): Postgres connection string
-- `EMAIL_USER` (optional): SMTP username/email (defaults to `hirschleasing@gmail.com` in code)
-- `EMAIL_PASSWORD` (optional): SMTP app password (required if you want emails to send)
-- `PORT` (optional): defaults to `3000`
-
-Start the server:
+- `DATABASE_URL` (required)
+- `EMAIL_USER` / `EMAIL_PASSWORD` (optional; for confirmations)
+- `PORT` (optional, default 3000)
 
 ```bash
 npm start
 ```
 
-Then open `http://localhost:3000/`.
+Open `http://localhost:3000/`.
 
-## Database notes
+On startup the server creates the `Bookings` table if needed and adds indexes used for conflict checks.
 
-On startup, the server will create the `Bookings` table (if it doesn’t exist) and add indexes used for availability + conflict checking.
+## Email
 
-## Email notes
-
-Email sending is **best-effort**: bookings are saved even if SMTP fails, and the API returns the `cancelId` so the booking can still be managed.
-
-Some hosting environments block outbound SMTP on free tiers. If SMTP is blocked, use an email API provider (SendGrid/Resend) over HTTPS instead.
+Bookings are saved even if SMTP fails. The API still returns `cancelId`. Some free hosts block outbound SMTP; use an HTTPS email API (Resend, SendGrid) in that case.
